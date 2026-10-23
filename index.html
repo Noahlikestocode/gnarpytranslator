@@ -1,0 +1,862 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GNARPY // Translator</title>
+<style>
+:root {
+  --bg:#080b10;
+  --panel:#111820;
+  --line:#293b46;
+  --green:#b9ff45;
+  --cyan:#69f5e8;
+  --text:#eff8f5;
+  --muted:#8da3a5;
+}
+* {box-sizing:border-box}
+body {
+  margin:0;background:radial-gradient(ellipse at top,#17302a,var(--bg) 65%);
+  color:var(--text);font-family:system-ui,-apple-system,sans-serif;
+  min-height:100vh;
+}
+header {text-align:center;padding:30px 16px 20px}
+.logo {font-size:52px;filter:drop-shadow(0 0 15px #b9ff4560)}
+h1 {margin:4px;color:var(--green);letter-spacing:4px;font-size:clamp(27px,7vw,43px)}
+.subtitle {color:var(--muted);font-size:13px;letter-spacing:2px}
+main {max-width:920px;margin:auto;padding:12px}
+.panel {
+  background:linear-gradient(145deg,#141e26,#0d131a);
+  border:1px solid var(--line);border-radius:17px;
+  padding:18px;margin-bottom:15px;
+}
+h2 {font-size:17px;color:var(--cyan);margin-top:0}
+label {display:block;color:var(--muted);font-size:13px;margin-bottom:7px}
+textarea,input,select {
+  width:100%;padding:13px;border-radius:10px;
+  border:1px solid var(--line);background:#080d12;
+  color:var(--text);font:inherit;outline:none;
+}
+textarea {min-height:130px;resize:vertical}
+textarea:focus,input:focus,select:focus {border-color:var(--green)}
+.row {display:flex;gap:10px;align-items:center}
+.row>* {flex:1;min-width:0}
+button {
+  padding:12px 14px;border:0;border-radius:10px;
+  font-weight:800;font-size:14px;cursor:pointer;
+  background:var(--green);color:#101609;
+}
+button.secondary {background:#202d35;color:var(--text);border:1px solid var(--line)}
+button:hover {filter:brightness(1.13)}
+.result {
+  min-height:110px;padding:16px;border-radius:11px;
+  border:1px solid #344c4a;background:#080d12;
+  font-size:20px;overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.alien-text {color:var(--green);text-shadow:0 0 12px #b9ff4520}
+#status {font-size:12px;color:var(--cyan);min-height:18px}
+.small {font-size:12px;color:var(--muted);line-height:1.6}
+.word-list {display:flex;gap:8px;flex-wrap:wrap}
+.word {
+  padding:8px 10px;border-radius:8px;
+  background:#19252b;border:1px solid #2a4147;font-size:13px;
+  overflow-wrap:anywhere;
+}
+.word strong {color:var(--green)}
+#missing .word {color:#ffe7a3}
+footer {text-align:center;padding:20px;color:var(--muted);font-size:12px}
+@media(max-width:520px) {
+  .row {flex-wrap:wrap}
+  .row>* {flex-basis:100%}
+  .panel {padding:14px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">👽</div>
+  <h1>GNARPY</h1>
+  <div class="subtitle">XENOLINGUISTIC TRANSLATION SYSTEM // V3</div>
+</header>
+
+<main>
+<section class="panel">
+  <div class="row">
+    <div>
+      <label for="direction">TRANSLATION MODE</label>
+      <select id="direction">
+        <option value="en">Human → Gnarpy</option>
+        <option value="gn">Gnarpy → Human</option>
+      </select>
+    </div>
+    <button class="secondary" id="swap">⇄ SWAP</button>
+  </div>
+  <br>
+  <label for="source">INPUT TRANSMISSION</label>
+  <textarea id="source" placeholder="Enter a message...&#10;Example: You are my friend."></textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="translate">⟢ TRANSLATE</button>
+    <button class="secondary" id="clear">CLEAR</button>
+    <button class="secondary" id="copy">COPY RESULT</button>
+  </div>
+  <br>
+  <label>DECODED TRANSMISSION</label>
+  <div class="result alien-text" id="result" aria-live="polite">Awaiting transmission...</div>
+  <p id="status"></p>
+</section>
+
+<section class="panel">
+  <h2>◈ UNKNOWN VOCABULARY</h2>
+  <p class="small">Words not in the dictionary appear here. Select one to teach the translator.</p>
+  <div id="missing" class="word-list">No unknown words detected.</div>
+</section>
+
+<section class="panel">
+  <h2>◈ XENOLINGUISTIC DATABASE</h2>
+  <input id="search" placeholder="Search either language...">
+  <br><br>
+  <div id="dictionary" class="word-list"></div>
+  <p class="small" id="count"></p>
+</section>
+
+<section class="panel">
+  <h2>◈ ADD A WORD</h2>
+  <label for="english">HUMAN WORD OR PHRASE</label>
+  <input id="english" placeholder="friend">
+  <br><br>
+  <label for="gnarpy">GNARPY WORD OR PHRASE</label>
+  <input id="gnarpy" placeholder="xhaiv">
+  <br><br>
+  <button id="add">+ ADD TO DATABASE</button>
+  <p id="teachStatus" class="small"></p>
+</section>
+</main>
+<footer>UNOFFICIAL FAN-MADE LANGUAGE // LOCAL DATABASE</footer>
+
+<script>
+/*
+  GNARPY LANGUAGE DESIGN
+  Word meanings are invented for this project.
+  Grammar is deliberately consistent and editable.
+*/
+
+const seed = {
+  // Pronouns
+  "I":"nqai",
+  "me":"nqai",
+  "my":"nqaiv",
+  "mine":"nqaiv",
+  "you":"vruu",
+  "your":"vruuv",
+  "yours":"vruuv",
+  "he":"zhae",
+  "him":"zhaem",
+  "his":"zhaev",
+  "she":"shae",
+  "her":"shaem",
+  "hers":"shaev",
+  "it":"qit",
+  "its":"qiv",
+  "we":"qrai",
+  "us":"qraim",
+  "our":"qraiv",
+  "they":"zhaq",
+  "them":"zhaqm",
+  "their":"zhaqv",
+  "this":"khae",
+  "that":"khau",
+  "these":"khaem",
+  "those":"khaum",
+  "someone":"nhaqi",
+  "everyone":"zhaqi",
+  "something":"qora",
+  "nothing":"nqora",
+
+  // Core grammar
+  "am":"vrae",
+  "is":"vrae",
+  "are":"vrae",
+  "be":"vrae",
+  "being":"vraesh",
+  "been":"vraek",
+  "was":"vraek",
+  "were":"vraek",
+  "will be":"vraesh",
+  "do":"druq",
+  "does":"druq",
+  "did":"druvek",
+  "doing":"druqesh",
+  "have":"qev",
+  "has":"qev",
+  "had":"qevk",
+  "can":"xai",
+  "could":"xaik",
+  "will":"zheq",
+  "would":"zhekv",
+  "shall":"zhai",
+  "should":"zhaik",
+  "may":"qae",
+  "might":"qaek",
+  "must":"qha",
+  "not":"nq",
+  "no":"nq",
+  "yes":"zha",
+  "and":"rrakai",
+  "or":"rrak",
+  "but":"qhra",
+  "because":"vhaqai",
+  "if":"qhai",
+  "then":"qhaur",
+  "than":"qhaiv",
+  "so":"rruva",
+  "a":"q",
+  "an":"q",
+  "the":"q",
+  "of":"vha",
+  "to":"krai",
+  "from":"qru",
+  "in":"vri",
+  "on":"vraq",
+  "at":"qri",
+  "by":"zru",
+  "with":"vru",
+  "without":"vruq",
+  "for":"kha",
+  "about":"qhrae",
+  "as":"qae",
+  "into":"vraqi",
+  "over":"zhaur",
+  "under":"zhaurq",
+  "before":"qraek",
+  "after":"qraesh",
+  "between":"vrauq",
+  "through":"qhrauq",
+  "up":"zhiq",
+  "down":"zhroq",
+
+  // Questions
+  "what":"qor'ae",
+  "who":"qhir",
+  "whom":"qhirn",
+  "whose":"qhirv",
+  "where":"vha'ru",
+  "when":"zha'ru",
+  "why":"zhaiq",
+  "how":"qae'ru",
+  "which":"qor'iq",
+  "how many":"qae'zhir",
+  "how much":"qae'vru",
+  "what is":"qor'ae vrae",
+  "who is":"qhir vrae",
+  "why is":"zhaiq vrae",
+
+  // Time and quantity
+  "now":"rrhaq",
+  "then":"qhaur",
+  "today":"zha'kai",
+  "tomorrow":"zha'kair",
+  "yesterday":"zha'kaek",
+  "always":"qha'zhur",
+  "never":"nqha'zhur",
+  "sometimes":"vra'zhur",
+  "soon":"qru'kai",
+  "later":"qru'kaek",
+  "early":"zhiq'kai",
+  "late":"zhroq'kai",
+  "again":"rrha'kai",
+  "already":"rrha'kha",
+  "still":"vra'kha",
+  "yet":"qra'kha",
+  "here":"vha'kai",
+  "there":"vha'kha",
+  "everywhere":"vha'zhur",
+  "nowhere":"nqvha'zhur",
+  "all":"zha'vor",
+  "some":"qra'vor",
+  "any":"qha'vor",
+  "each":"zha'vri",
+  "every":"zha'vraq",
+  "many":"qru'zhai",
+  "few":"nqru'zhai",
+  "more":"qru'zhur",
+  "most":"qru'zhura",
+  "less":"nqru'zhur",
+  "enough":"vra'zhai",
+  "another":"qra'khor",
+  "together":"rru'vha",
+  "alone":"nqrru'vha",
+  "maybe":"qha'ae",
+  "almost":"vra'ae",
+  "only":"q'zhai",
+
+  // Verbs
+  "go":"kruq",
+  "goes":"kruq",
+  "going":"kruqesh",
+  "went":"kruqek",
+  "come":"vruq",
+  "comes":"vruq",
+  "came":"vruqek",
+  "get":"qhraq",
+  "got":"qhraqek",
+  "make":"zruq",
+  "made":"zruqek",
+  "take":"khruq",
+  "took":"khruqek",
+  "give":"vhaq",
+  "gave":"vhaqek",
+  "know":"qen'zh",
+  "knew":"qen'zhak",
+  "think":"qhraiv",
+  "thought":"qhraivak",
+  "want":"k'zhai",
+  "need":"q'vrae",
+  "like":"zhaiv",
+  "love":"qhaiv",
+  "hate":"nqhaiv",
+  "see":"zhruq",
+  "saw":"zhruqek",
+  "look":"xruv",
+  "hear":"qhirq",
+  "listen":"qhirqai",
+  "say":"rrheq",
+  "said":"rrheqek",
+  "tell":"qhaq",
+  "speak":"xhaq",
+  "talk":"xhaqai",
+  "ask":"qorq",
+  "answer":"qorqek",
+  "eat":"q'vash",
+  "drink":"uulzh",
+  "sleep":"zhhaum",
+  "wake":"zhhaur",
+  "run":"xhaur",
+  "walk":"xhaurq",
+  "jump":"krrha",
+  "play":"q'zhur",
+  "work":"vha'zh",
+  "learn":"qen'rai",
+  "teach":"qen'raiv",
+  "read":"zhqai",
+  "write":"zhqav",
+  "build":"qru'zh",
+  "create":"qru'zha",
+  "help":"vra'kh",
+  "try":"qha'zh",
+  "use":"vru'zh",
+  "find":"qhir'zh",
+  "lose":"nqhir'zh",
+  "keep":"zha'kh",
+  "put":"qru'kh",
+  "bring":"vru'kh",
+  "leave":"nqru'kh",
+  "stay":"vrae'kh",
+  "wait":"qhra'kh",
+  "start":"zhai'kh",
+  "stop":"nzhai'kh",
+  "open":"qor'kh",
+  "close":"nqor'kh",
+  "move":"xru'kh",
+  "feel":"qhaiv",
+  "seem":"vra'iv",
+  "believe":"qen'vra",
+  "remember":"qen'vraq",
+  "forget":"nqen'vraq",
+  "understand":"qen'qor",
+  "mean":"qor'vrae",
+  "happen":"zhra'kh",
+  "live":"vra'zhur",
+  "change":"xra'kh",
+  "grow":"qra'zh",
+  "make friends":"rrha'vru",
+  "follow":"zha'ruq",
+  "lead":"qra'ruq",
+  "win":"zha'khai",
+  "lose":"nqha'khai",
+  "play":"q'zhur",
+  "sleeping":"zhhaumesh",
+  "eating":"q'vashe",
+  "drinking":"uulzhe",
+  "running":"xhaure",
+  "walking":"xhaurqe",
+
+  // Descriptions
+  "good":"thaeq",
+  "bad":"xruv",
+  "great":"qhra'za",
+  "awesome":"qhra'zha",
+  "cool":"zhqorr",
+  "weird":"xruv",
+  "strange":"xruv",
+  "big":"qhraun",
+  "small":"vhiq",
+  "tiny":"vhiq'ik",
+  "huge":"qhraun'za",
+  "long":"qruun",
+  "short":"vhiq'ru",
+  "tall":"zhaur",
+  "high":"zhaurq",
+  "low":"zhroq",
+  "fast":"xhaur'kai",
+  "slow":"xhaur'kha",
+  "easy":"qhai'ik",
+  "hard":"qhai'zh",
+  "difficult":"qhai'zhur",
+  "happy":"qhaiv'kai",
+  "sad":"nqhaiv'kai",
+  "angry":"xrrha",
+  "scared":"qha'rru",
+  "funny":"zhra'kai",
+  "silly":"zhra'kha",
+  "smart":"qen'zhai",
+  "kind":"vra'zhai",
+  "nice":"vra'zh",
+  "friendly":"xhaiv",
+  "brave":"qhra'vha",
+  "new":"qra'kai",
+  "old":"qra'kaek",
+  "young":"qra'ik",
+  "hot":"zhhaq",
+  "cold":"qhuul",
+  "warm":"zhha'ik",
+  "wet":"uul'zhai",
+  "dry":"nquul'zhai",
+  "clean":"qha'vri",
+  "dirty":"nqha'vri",
+  "bright":"zha'vex",
+  "dark":"nqzha'vex",
+  "beautiful":"qhaiv'zhur",
+  "strong":"qhra'vex",
+  "weak":"nqhra'vex",
+  "right":"zha'kor",
+  "wrong":"nqzha'kor",
+  "true":"qen'kor",
+  "false":"nqen'kor",
+  "important":"qhra'kor",
+  "ready":"zha'vra",
+  "busy":"qra'vru",
+  "tired":"zhhaum'ik",
+  "hungry":"q'vash'ik",
+  "thirsty":"uulzh'ik",
+  "safe":"vra'kor",
+  "dangerous":"xrrha'kor",
+  "empty":"nq'vash",
+  "full":"q'vash",
+  "loud":"xhaq'zh",
+  "quiet":"nqxhaq'zh",
+  "soft":"vhiq'zh",
+  "sharp":"qhra'zh",
+  "sweet":"q'vra",
+  "bitter":"x'vra",
+  "sour":"q'zhra",
+  "salty":"q'vru",
+  "broken":"xra'ek",
+  "fixed":"xra'esh",
+
+  // People and relationships
+  "friend":"xhaiv",
+  "friends":"xhaiv",
+  "enemy":"nqxhaiv",
+  "family":"qra'vha",
+  "person":"qhirn",
+  "people":"qhir'zh",
+  "human":"qhirn",
+  "alien":"qhirn'za",
+  "child":"vhiq'qir",
+  "adult":"qhra'qir",
+  "parent":"qra'qir",
+  "mother":"qra'qirv",
+  "father":"qra'qirn",
+  "sibling":"qra'qirz",
+  "teacher":"qen'raiv",
+  "student":"qen'rai",
+  "leader":"qra'ruq",
+  "stranger":"nqxhaiv",
+  "team":"rru'vha",
+  "group":"rru'zhur",
+  "name":"qhir'kai",
+  "age":"zha'vraq",
+  "life":"vra'zhur",
+  "world":"vaelq",
+  "home":"qra'vru",
+  "house":"qra'vru",
+  "room":"qra'vruq",
+  "school":"qen'zhur",
+  "city":"vaelq'zhur",
+  "country":"vaelq'vha",
+  "place":"vaelq",
+  "road":"kruq'zh",
+  "door":"qor'vha",
+  "window":"qor'vhaq",
+  "food":"q'vash",
+  "water":"uulzh",
+  "fire":"zhhaq",
+  "air":"vruun",
+  "earth":"qraun",
+  "space":"zhour",
+  "planet":"vaelq",
+  "star":"qhraix",
+  "moon":"uulq",
+  "sun":"zhhaq'ra",
+  "sky":"vruun'zhur",
+  "tree":"qra'zhun",
+  "plant":"qra'zhai",
+  "flower":"qra'zhaiq",
+  "animal":"qhir'vex",
+  "cat":"gnarpy",
+  "dog":"glorp",
+  "bird":"qhiq",
+  "fish":"uul'qir",
+  "bug":"xhiq",
+  "otter":"uul'xhaiv",
+  "wolf":"xrrha'qir",
+  "fox":"xruv'qir",
+  "robot":"qhir'kron",
+  "machine":"qru'kron",
+  "computer":"qru'kron'zh",
+  "phone":"qru'vex",
+  "internet":"qru'vex'zhur",
+  "game":"q'zhur",
+  "music":"xhaq'rai",
+  "song":"xhaq'raiv",
+  "piano":"xhaq'vra",
+  "keyboard":"qru'zhai",
+  "book":"zhqai'vra",
+  "money":"qra'vex",
+  "time":"zha'ru",
+  "day":"zha'kai",
+  "night":"uul'zhur",
+  "morning":"zha'kaiv",
+  "evening":"uul'kaiv",
+  "year":"zha'zhur",
+  "week":"zha'vru",
+  "minute":"zha'ik",
+  "second":"zha'ikq",
+  "number":"qor'zh",
+  "word":"qor'zhai",
+  "language":"qor'zhur",
+  "question":"qor'ae",
+  "answer":"qor'vrae",
+  "problem":"xruv'zh",
+  "idea":"qen'zhur",
+  "story":"qor'zhurq",
+  "secret":"nq'qor",
+  "truth":"qen'kor",
+  "lie":"nqen'kor",
+  "power":"qhra'vex",
+  "energy":"zhha'vex",
+  "sound":"xhaq",
+  "light":"zha'vex",
+  "shadow":"nqzha'vex",
+  "color":"qra'vex",
+  "shape":"qra'zh",
+  "line":"qra'zhai",
+  "circle":"qra'zhur",
+  "point":"qra'ik",
+  "end":"qha'ek",
+  "beginning":"qha'esh",
+  "middle":"qha'vru",
+  "top":"zhaur",
+  "bottom":"zhroq",
+  "front":"qra'kai",
+  "back":"qra'kaek",
+  "side":"qra'vhaq",
+
+  // Numbers
+  "zero":"nqor",
+  "one":"qor",
+  "two":"qorq",
+  "three":"qorzh",
+  "four":"qorv",
+  "five":"qorx",
+  "six":"qorrr",
+  "seven":"qorzha",
+  "eight":"qorvra",
+  "nine":"qorqha",
+  "ten":"qorzhur",
+  "first":"qor'ik",
+  "second place":"qorq'ik",
+  "last":"qha'ek",
+  "many times":"qru'zhur",
+
+  // Useful expressions
+  "hello":"zhra'kai",
+  "hi":"zhra'kai",
+  "goodbye":"xha'ruun",
+  "bye":"xha'ruun",
+  "please":"qha'vri",
+  "thanks":"thra'kai",
+  "thank you":"thra'kai",
+  "sorry":"nqha'vri",
+  "welcome":"vael'zhai",
+  "okay":"qae'kor",
+  "really":"qen'zhai",
+  "wow":"qhra'oi",
+  "hey":"zhra'kai",
+  "oh":"q'oi",
+  "oops":"xrr'ik",
+  "I am":"nqai vrae",
+  "you are":"vruu vrae",
+  "we are":"qrai vrae",
+  "they are":"zhaq vrae",
+  "I was":"nqai vraek",
+  "you were":"vruu vraek",
+  "I will be":"nqai vraesh",
+  "I love you":"nqai qhaiv vruu",
+  "you are my friend":"vruu vrae nqaiv xhaiv",
+  "I am happy":"nqai vrae qhaiv'kai",
+  "how are you":"qae'ru vrae vruu",
+  "what is your name":"qor'ae vrae vruuv qhir'kai",
+  "my name is":"nqaiv qhir'kai vrae",
+  "I don't know":"nqai nq qen'zh",
+  "I do not know":"nqai druq nq qen'zh",
+  "I need help":"nqai q'vrae vra'kh",
+  "help me":"vra'kh nqai",
+  "are you okay":"vruu vrae qae'kor",
+  "good morning":"thaeq zha'kaiv",
+  "good night":"thaeq uul'zhur",
+  "see you later":"zhruq vruu qru'kaek",
+  "let us go":"qrai kruq",
+  "let's go":"qrai kruq",
+  "I understand":"nqai qen'qor",
+  "I don't understand":"nqai nq qen'qor",
+  "what are you doing":"qor'ae vruu druqesh",
+  "who are you":"qhir vrae vruu",
+  "where are we":"vha'ru vrae qrai",
+  "why not":"zhaiq nq",
+  "no problem":"nq xruv'zh",
+  "all good":"zha'vor thaeq",
+  "be careful":"vrae qha'kor",
+  "watch out":"zhruq xrrha",
+  "come here":"vruq vha'kai",
+  "go away":"kruq vha'kha",
+  "wait for me":"qhra'kh kha nqai",
+  "I am ready":"nqai vrae zha'vra",
+  "that is strange":"khau vrae xruv",
+  "this is good":"khae vrae thaeq",
+  "we did it":"qrai druvek qit",
+  "mission complete":"qra'zhur qha'ek",
+  "system online":"qru'kron zha'vra",
+  "system offline":"qru'kron nqzha'vra",
+  "unknown lifeform":"nq'qen vra'zhur",
+  "alien detected":"qhirn'za zhruq",
+  "welcome to space":"vael'zhai krai zhour",
+  "gnarp":"gnarp",
+  "glorp":"glorp",
+  "gnarpy":"gnarpy"
+};
+
+// Custom words saved locally.
+let dictionary = {...seed};
+try {
+  const saved = JSON.parse(localStorage.getItem("gnarpyV3") || "{}");
+  dictionary = {...dictionary, ...saved};
+} catch (e) {}
+
+const $ = id => document.getElementById(id);
+let unknown = [];
+
+function makeReverse() {
+  const reverse = {};
+  for (const [english, alien] of Object.entries(dictionary)) {
+    // Keep the first translation when multiple English words share one form.
+    if (!reverse[alien.toLowerCase()]) reverse[alien.toLowerCase()] = english;
+  }
+  return reverse;
+}
+
+function escapeHTML(text) {
+  return text.replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;",
+    '"':"&quot;", "'":"&#39;"
+  }[c]));
+}
+
+function translate(text, direction) {
+  const map = direction === "en" ? dictionary : makeReverse();
+  const keys = Object.keys(map).sort((a,b) => b.length - a.length);
+  const missing = new Set();
+  const tokens = text.match(/[A-Za-zÀ-ÿ0-9']+|[^A-Za-zÀ-ÿ0-9']+/g) || [];
+  const output = [];
+
+  for (let i = 0; i < tokens.length;) {
+    // Preserve spaces and punctuation exactly.
+    if (!/[A-Za-zÀ-ÿ0-9']/.test(tokens[i])) {
+      output.push(tokens[i++]);
+      continue;
+    }
+
+    let found = null;
+    let used = 0;
+
+    // Try the longest matching phrase first.
+    for (const key of keys) {
+      const parts = key.split(/\s+/);
+      if (parts.length > 12 || i + parts.length > tokens.length) continue;
+
+      let candidate = [];
+      let valid = true;
+
+      for (let j = 0; j < parts.length; j++) {
+        const token = tokens[i+j];
+        if (!token || !/^[A-Za-zÀ-ÿ0-9']+$/.test(token)) {
+          valid = false;
+          break;
+        }
+        candidate.push(token);
+      }
+
+      if (!valid) continue;
+      if (candidate.join(" ").toLowerCase() === key.toLowerCase()) {
+        found = map[key];
+        used = parts.length;
+        break;
+      }
+    }
+
+    if (found !== null) {
+      let word = found;
+      const original = tokens[i];
+      if (original && original[0] === original[0].toUpperCase()) {
+        word = word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      output.push(word);
+      i += used;
+    } else {
+      const token = tokens[i];
+      if (!Object.keys(map).some(k => k.toLowerCase() === token.toLowerCase())) {
+        missing.add(token);
+      }
+      output.push(token);
+      i++;
+    }
+  }
+
+  unknown = [...missing];
+  return output.join("");
+}
+
+function run() {
+  const input = $("source").value;
+  const direction = $("direction").value;
+  const output = translate(input, direction);
+  $("result").textContent = output || "Awaiting transmission...";
+  $("result").classList.toggle("alien-text", direction === "en");
+  $("status").textContent = unknown.length
+    ? `${unknown.length} unknown word(s). Add them to the database below.`
+    : "TRANSMISSION PROCESSED // GNARP.";
+  renderUnknown();
+}
+
+function renderUnknown() {
+  const box = $("missing");
+  box.replaceChildren();
+
+  if (!unknown.length) {
+    box.textContent = "No unknown words detected.";
+    return;
+  }
+
+  unknown.forEach(word => {
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.textContent = "+ " + word;
+    button.onclick = () => {
+      $("english").value = word;
+      $("gnarpy").focus();
+    };
+    box.appendChild(button);
+  });
+}
+
+function renderDictionary() {
+  const query = $("search").value.toLowerCase();
+  const entries = Object.entries(dictionary)
+    .filter(([en, gn]) =>
+      en.toLowerCase().includes(query) ||
+      gn.toLowerCase().includes(query))
+    .sort((a,b) => a[0].localeCompare(b[0]));
+
+  $("count").textContent =
+    `${entries.length} matching entries // ${Object.keys(dictionary).length} total`;
+
+  const box = $("dictionary");
+  box.replaceChildren();
+
+  entries.slice(0,200).forEach(([en, gn]) => {
+    const item = document.createElement("div");
+    item.className = "word";
+    item.innerHTML = `<strong>${escapeHTML(en)}</strong> → ${escapeHTML(gn)}`;
+    box.appendChild(item);
+  });
+
+  if (entries.length > 200) {
+    const note = document.createElement("p");
+    note.className = "small";
+    note.textContent = "Showing 200 results. Search to narrow the list.";
+    box.appendChild(note);
+  }
+}
+
+$("translate").onclick = run;
+$("source").addEventListener("keydown", event => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") run();
+});
+
+$("clear").onclick = () => {
+  $("source").value = "";
+  $("result").textContent = "Awaiting transmission...";
+  $("status").textContent = "";
+  unknown = [];
+  renderUnknown();
+};
+
+$("swap").onclick = () => {
+  const oldInput = $("source").value;
+  const oldOutput = $("result").textContent;
+  $("direction").value = $("direction").value === "en" ? "gn" : "en";
+  $("source").value =
+    oldOutput === "Awaiting transmission..." ? "" : oldOutput;
+  $("result").textContent = oldInput || "Awaiting transmission...";
+  run();
+};
+
+$("copy").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("result").textContent);
+    $("status").textContent = "COPIED TO CLIPBOARD.";
+  } catch (error) {
+    $("status").textContent = "Select the result and copy it manually.";
+  }
+};
+
+$("search").addEventListener("input", renderDictionary);
+
+$("add").onclick = () => {
+  const en = $("english").value.trim().toLowerCase();
+  const gn = $("gnarpy").value.trim();
+
+  if (!en || !gn) {
+    $("teachStatus").textContent = "Both fields are required.";
+    return;
+  }
+
+  dictionary[en] = gn;
+
+  try {
+    localStorage.setItem("gnarpyV3", JSON.stringify(dictionary));
+    $("teachStatus").textContent = `Added "${en}" → "${gn}". Saved in this browser.`;
+  } catch (error) {
+    $("teachStatus").textContent = `Added "${en}" → "${gn}" for this session. Browser saving is unavailable.`;
+  }
+
+  $("english").value = "";
+  $("gnarpy").value = "";
+  renderDictionary();
+};
+
+renderDictionary();
+</script>
+</body>
+</html>
