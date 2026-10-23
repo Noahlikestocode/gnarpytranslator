@@ -1,0 +1,312 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gnarpy Translator 👽</title>
+<style>
+:root{color-scheme:dark;--bg:#07110b;--panel:#101e14;--green:#8cff9b;--muted:#a6b9a9}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at top,#173820,#07110b 65%);color:#effff0;font:16px system-ui,sans-serif;min-height:100vh}
+header{text-align:center;padding:30px 16px 18px}
+.alien{font-size:52px}
+h1{color:var(--green);margin:5px;font-size:clamp(28px,7vw,44px)}
+header p{color:var(--muted);margin:8px}
+main{max-width:900px;margin:auto;padding:12px}
+.panel{background:#101e14eF;border:1px solid #31553a;border-radius:18px;padding:18px;margin-bottom:15px;box-shadow:0 8px 35px #0005}
+label{display:block;color:var(--green);font-weight:700;margin-bottom:9px}
+select,textarea,input,button{font:inherit}
+select,textarea,input{background:#07110b;color:white;border:1px solid #426448;border-radius:11px;padding:12px;width:100%}
+textarea{min-height:145px;resize:vertical}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+button{background:var(--green);color:#09200e;border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}
+button.secondary{background:#203a27;color:#eaffec;border:1px solid #426448}
+button:hover{filter:brightness(1.12)}
+.result{white-space:pre-wrap;overflow-wrap:anywhere;min-height:100px;background:#07110b;border:1px solid #426448;padding:15px;border-radius:12px;font-size:19px}
+.muted{color:var(--muted);font-size:13px}
+.words{display:flex;flex-wrap:wrap;gap:7px}
+.word{background:#203a27;border-radius:8px;padding:6px 9px;font-size:13px}
+.word button{padding:2px 6px;margin-left:5px}
+h2{font-size:19px;color:var(--green);margin-top:0}
+#status{color:var(--green);min-height:24px}
+footer{text-align:center;color:var(--muted);padding:15px}
+@media(max-width:520px){.row{flex-direction:column;align-items:stretch}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<header>
+<div class="alien">👽</div>
+<h1>GNARPY TRANSLATOR</h1>
+<p>Gnarpy English • Translator 2.0 • Offline mode</p>
+</header>
+<main>
+<section class="panel">
+<div class="row">
+<div>
+<label for="direction">Translation direction</label>
+<select id="direction">
+<option value="en">English → Gnarpy</option>
+<option value="gn">Gnarpy → English</option>
+</select>
+</div>
+<button class="secondary" id="swap">⇄ Swap direction</button>
+</div>
+<br>
+<label for="source">Your sentence</label>
+<textarea id="source" placeholder="Type something... Try: I am your friend!"></textarea>
+<div class="row" style="margin-top:12px">
+<button id="translate">👽 TRANSLATE</button>
+<button class="secondary" id="clear">Clear</button>
+<button class="secondary" id="copy">Copy result</button>
+</div>
+<br>
+<label>Translation</label>
+<div id="result" class="result" aria-live="polite">Your alien translation will appear here...</div>
+<p id="status"></p>
+</section>
+
+<section class="panel">
+<h2>🔎 Unknown words</h2>
+<p class="muted">Words without a translation appear here. Add your own translations to expand the language.</p>
+<div id="unknown" class="words"><span class="muted">No unknown words yet.</span></div>
+</section>
+
+<section class="panel">
+<h2>📚 Dictionary</h2>
+<input id="search" placeholder="Search English or Gnarpy words...">
+<br><br>
+<div id="dictionary" class="words"></div>
+<p id="count" class="muted"></p>
+</section>
+
+<section class="panel">
+<h2>➕ Teach Gnarpy English</h2>
+<p class="muted">Add a word or phrase. Your additions are saved in this browser when local storage is available.</p>
+<label for="english">English word or phrase</label>
+<input id="english" placeholder="are">
+<br><br>
+<label for="gnarpy">Gnarpy translation</label>
+<input id="alien" placeholder="invent your Gnarpy word">
+<br><br>
+<button id="add">Add to dictionary</button>
+<p id="teachStatus" class="muted"></p>
+</section>
+</main>
+<footer>Fan-made language project • Not official Gnarpy vocabulary</footer>
+
+<script>
+const base = {
+"I":"na","me":"mi","my":"ma","mine":"mira",
+"you":"yu","your":"yura","yours":"yuri",
+"he":"he","him":"hima","his":"hisa",
+"she":"sha","her":"shara","hers":"shari",
+"it":"it","its":"ita","we":"nara","us":"nami",
+"our":"nara","they":"zara","them":"zami","their":"zara",
+"am":"glam","is":"glis","are":"glar","was":"glash",
+"were":"glarsh","be":"gleb","been":"gleba","being":"glebi",
+"do":"doba","does":"dobi","did":"doda",
+"have":"hava","has":"hazi","had":"hadu",
+"can":"kna","could":"knu","will":"wila","would":"wulu",
+"shall":"shala","should":"shuda","may":"meya","might":"mita",
+"must":"musta","not":"nob","no":"nah","yes":"yah",
+"and":"gna","or":"gno","but":"gneb","because":"glosa",
+"if":"ifi","then":"zena","than":"zani","so":"soga",
+"of":"ova","to":"tu","from":"fru","in":"ini","on":"ona",
+"at":"ata","by":"bai","with":"wiza","without":"wizu",
+"for":"fora","about":"abna","as":"aza","into":"inta",
+"over":"ovaq","under":"unda","before":"bifa","after":"afra",
+"between":"bita","through":"thrua","up":"upa","down":"duna",
+"here":"hira","there":"zhera","where":"whera","when":"wena",
+"why":"whaia","what":"wata","who":"woba","which":"wicha",
+"how":"hawa","all":"zall","some":"soma","any":"anya",
+"every":"evra","each":"icha","many":"manya","more":"mora",
+"most":"mosta","less":"lesa","few":"fewa","enough":"enufa",
+"very":"vexa","too":"tuga","only":"ona","also":"alza",
+"again":"aguna","always":"alwaza","never":"nevra",
+"sometimes":"somta","now":"nau","then":"zhen","today":"toda",
+"tomorrow":"tomra","yesterday":"yestra","soon":"suna",
+"later":"lata","early":"erla","late":"lataz",
+"become":"bikoma","go":"goba","goes":"gobi","went":"goda",
+"come":"koma","came":"komaq","get":"geta","got":"gota",
+"make":"meka","made":"meda","take":"taka","took":"toka",
+"give":"giva","gave":"gova","know":"noba","knew":"nuba",
+"think":"thinka","thought":"thunka","want":"wanta","need":"nida",
+"like":"lika","love":"lova","hate":"hata","see":"sika",
+"saw":"soka","look":"luka","watch":"wacha","hear":"hira",
+"listen":"lisna","say":"saya","said":"sada","tell":"tela",
+"speak":"spika","talk":"talka","ask":"aska","answer":"ansha",
+"eat":"eta","drink":"drika","sleep":"slipa","wake":"weka",
+"run":"runa","walk":"walka","jump":"jampa","play":"plaga",
+"work":"worka","learn":"lerna","teach":"ticha","read":"reda",
+"write":"writa","build":"bilda","create":"kreta","help":"helpa",
+"try":"trai","use":"yusa","find":"fanda","lose":"lusa",
+"keep":"kipa","put":"puda","bring":"bringa","leave":"liva",
+"stay":"staya","wait":"weta","start":"stara","stop":"stoba",
+"open":"opna","close":"klosa","turn":"turna","move":"muva",
+"feel":"fila","felt":"felta","seem":"sima","believe":"biliva",
+"remember":"remba","forget":"forga","understand":"undasta",
+"mean":"mina","happen":"hapna","live":"livaq","die":"dai",
+"good":"guda","bad":"bada","great":"grata","awesome":"awza",
+"cool":"kula","weird":"wirda","strange":"stranga",
+"big":"biga","small":"smola","tiny":"tina","huge":"huga",
+"long":"longa","short":"shora","tall":"tala","high":"higa",
+"low":"lowa","fast":"fasta","slow":"slowa","quick":"kwika",
+"easy":"eza","hard":"harda","difficult":"difika",
+"happy":"hapa","sad":"sadaq","angry":"angra","scared":"skara",
+"funny":"funa","silly":"sila","smart":"smarta","kind":"kinda",
+"nice":"nisa","friendly":"frenda","brave":"brava",
+"new":"nubaq","old":"olda","young":"yunga","hot":"hota",
+"cold":"kolda","warm":"wama","wet":"wetaq","dry":"drai",
+"clean":"klina","dirty":"dirta","bright":"braita","dark":"darka",
+"beautiful":"bela","ugly":"uga","strong":"stronga","weak":"wika",
+"right":"raita","wrong":"wronga","true":"trua","false":"falsa",
+"important":"impora","ready":"reda","busy":"biza","tired":"taira",
+"hungry":"hanga","thirsty":"thirza","safe":"safa","dangerous":"danga",
+"friend":"frenga","friends":"frengas","family":"famila",
+"person":"persa","people":"pepla","human":"humna","alien":"alina",
+"cat":"gnarpy","dog":"glorp","pet":"peta","animal":"anima",
+"food":"fuda","water":"wata","fire":"fira","earth":"ertha",
+"air":"aira","space":"spaza","planet":"planeta","star":"staraq",
+"moon":"muna","sun":"sunaq","world":"wolda","home":"homa",
+"house":"husa","room":"ruma","school":"skula","teacher":"tichaq",
+"book":"buka","computer":"kompura","phone":"fona","game":"gema",
+"music":"muzika","song":"songa","piano":"piana","keyboard":"kiborda",
+"computer game":"kompura gema","video game":"vida gema",
+"hello":"gnarp","hi":"gnarp","goodbye":"gnarpo",
+"bye":"gnarpo","please":"pliza","thanks":"thanka",
+"thank you":"thanka yu","sorry":"sorra","welcome":"welka",
+"okay":"oka","maybe":"maba","really":"rila","sure":"shura",
+"wow":"wowa","hey":"heya","oh":"oza","oops":"upa",
+"because of":"glosa ova","I am":"na glam","you are":"yu glar",
+"we are":"nara glar","they are":"zara glar",
+"I love you":"na lova yu","how are you":"hawa glar yu",
+"what is your name":"wata glis yura nema",
+"my name is":"ma nema glis","I don't know":"na nob noba",
+"do not":"doba nob","I am happy":"na glam hapa",
+"you are my friend":"yu glar ma frenga",
+"good morning":"guda morna","good night":"guda naita",
+"see you later":"sika yu lata","let's go":"lesta goba",
+"help me":"helpa mi","I need help":"na nida helpa",
+"what are you doing":"wata glar yu doba",
+"are you okay":"glar yu oka","I don't understand":"na nob undasta"
+};
+
+let dict={...base};
+try{
+ const saved=JSON.parse(localStorage.getItem("gnarpyCustom")||"{}");
+ dict={...dict,...saved};
+}catch(e){}
+
+const $=id=>document.getElementById(id);
+let unknownWords=[];
+
+function escapeRegExp(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
+
+function translateText(text, direction){
+ const lookup={};
+ for(const [en,gn] of Object.entries(dict)){
+   const from=direction==="en"?en:gn;
+   const to=direction==="en"?gn:en;
+   lookup[from.toLowerCase()]={from,to};
+ }
+ const keys=Object.keys(lookup).sort((a,b)=>b.length-a.length);
+ const unknown=new Set();
+ // Preserve punctuation and whitespace while matching longest phrases first.
+ const tokens=text.match(/[A-Za-z0-9]+(?:['’][A-Za-z]+)*|[^A-Za-z0-9]+/g)||[];
+ let output=[];
+ for(let i=0;i<tokens.length;){
+   if(!/[A-Za-z0-9]/.test(tokens[i])){
+     output.push(tokens[i++]); continue;
+   }
+   let found=null, used=0;
+   for(let n=Math.min(8,tokens.length-i);n>=1;n--){
+     const chunk=tokens.slice(i,i+n);
+     if(chunk.some(t=>!/[A-Za-z0-9]/.test(t))) continue;
+     const phrase=chunk.join(" ").toLowerCase();
+     if(lookup[phrase]){found=lookup[phrase];used=n;break;}
+   }
+   if(found){
+     let result=found.to;
+     const original=tokens[i];
+     if(original && original[0]===original[0].toUpperCase())
+       result=result.charAt(0).toUpperCase()+result.slice(1);
+     output.push(result); i+=used;
+   }else{
+     const word=tokens[i];
+     if(!lookup[word.toLowerCase()]) unknown.add(word);
+     output.push(word);i++;
+   }
+ }
+ unknownWords=[...unknown];
+ return output.join("");
+}
+
+function runTranslation(){
+ const text=$("source").value;
+ const direction=$("direction").value;
+ $("result").textContent=translateText(text,direction)||"Type something first!";
+ $("status").textContent=unknownWords.length
+   ? `${unknownWords.length} unknown word(s) found. Add them below!`
+   : "Translation complete. GNARP! 👽";
+ renderUnknown();renderDictionary();
+}
+function renderUnknown(){
+ const box=$("unknown");box.innerHTML="";
+ if(!unknownWords.length){box.textContent="No unknown words yet.";return}
+ unknownWords.forEach(w=>{
+  const b=document.createElement("button");b.className="secondary";b.textContent="+ "+w;
+  b.onclick=()=>{$("english").value=w;$("alien").focus()};
+  box.appendChild(b);
+ });
+}
+function renderDictionary(){
+ const q=$("search").value.toLowerCase();
+ const entries=Object.entries(dict).filter(([a,b])=>
+  a.toLowerCase().includes(q)||b.toLowerCase().includes(q))
+  .sort((a,b)=>a[0].localeCompare(b[0]));
+ $("count").textContent=`${entries.length} matching entries • ${Object.keys(dict).length} total`;
+ const box=$("dictionary");box.innerHTML="";
+ entries.slice(0,180).forEach(([en,gn])=>{
+  const span=document.createElement("span");span.className="word";
+  span.textContent=`${en} → ${gn}`;box.appendChild(span);
+ });
+ if(entries.length>180){
+  const more=document.createElement("p");more.className="muted";
+  more.textContent="Showing first 180 matches. Search to narrow the list.";box.appendChild(more);
+ }
+}
+$("translate").onclick=runTranslation;
+$("source").addEventListener("keydown",e=>{
+ if((e.metaKey||e.ctrlKey)&&e.key==="Enter")runTranslation();
+});
+$("clear").onclick=()=>{
+ $("source").value="";$("result").textContent="Your alien translation will appear here...";
+ $("status").textContent="";unknownWords=[];renderUnknown();
+};
+$("copy").onclick=async()=>{
+ try{await navigator.clipboard.writeText($("result").textContent);$("status").textContent="Copied!";}
+ catch(e){$("status").textContent="Select the result text and copy it.";}
+};
+$("swap").onclick=()=>{
+ $("direction").value=$("direction").value==="en"?"gn":"en";
+ const old=$("source").value;$("source").value=$("result").textContent;
+ $("result").textContent=old;runTranslation();
+};
+$("search").addEventListener("input",renderDictionary);
+$("add").onclick=()=>{
+ const en=$("english").value.trim().toLowerCase();
+ const gn=$("alien").value.trim();
+ if(!en||!gn){$("teachStatus").textContent="Enter both words first.";return}
+ dict[en]=gn;
+ try{localStorage.setItem("gnarpyCustom",JSON.stringify(dict));}
+ catch(e){}
+ $("teachStatus").textContent=`Added: ${en} → ${gn}`;
+ $("english").value="";$("alien").value="";
+ renderDictionary();
+};
+renderDictionary();
+</script>
+</body>
+</html>
